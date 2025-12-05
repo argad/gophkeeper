@@ -1,0 +1,7 @@
+{
+  "server_address": ":8080",
+  "database_dsn": "postgresql://postgres:rfvtgbrfv@localhost:5432/diploma",
+  "jwt_secret": "your-secret-key-change-in-production",
+  "storage_type": "postgres",
+  "encryption_key": "Iz/xCPk2vTWi6d7m1ubdLA79kXl4c3DjTE0e982DRT0="
+}
