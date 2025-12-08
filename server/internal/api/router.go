@@ -3,30 +3,31 @@ package api
 import (
 	"gophkeeper/server/internal/auth"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // NewRouter creates a new router with the given API handlers and JWT manager.
 func NewRouter(api *API, jwtManager *auth.JWTManager) http.Handler {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	// Public endpoints (no authentication required)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("pong"))
+	r.Use(middleware.Logger)
+
+	r.Route("/api/user", func(r chi.Router) {
+		r.Post("/register", api.Register)
+		r.Post("/login", api.Login)
 	})
-	mux.HandleFunc("/api/user/register", api.Register)
-	mux.HandleFunc("/api/user/login", api.Login)
 
-	// Protected endpoints (authentication required)
-	protectedMux := http.NewServeMux()
-	protectedMux.HandleFunc("POST /api/secrets", api.CreateSecret)
-	protectedMux.HandleFunc("GET /api/secrets", api.GetSecrets)
-	protectedMux.HandleFunc("GET /api/secrets/{id}", api.GetSecretByID)
-	protectedMux.HandleFunc("PUT /api/secrets/{id}", api.UpdateSecret)
-	protectedMux.HandleFunc("DELETE /api/secrets/{id}", api.DeleteSecret)
+	r.Route("/api/secrets", func(r chi.Router) {
+		r.Use(jwtManager.AuthMiddleware)
 
-	// Apply JWT authentication middleware to protected routes
-	mux.Handle("/api/secrets/", jwtManager.AuthMiddleware(protectedMux))
-	mux.Handle("/api/secrets", jwtManager.AuthMiddleware(protectedMux)) // Handle base path too
+		r.Post("/", api.CreateSecret)
+		r.Get("/", api.GetSecrets)
+		r.Get("/{id}", api.GetSecretByID)
+		r.Put("/{id}", api.UpdateSecret)
+		r.Delete("/{id}", api.DeleteSecret)
+	})
 
-	return mux
+	return r
 }

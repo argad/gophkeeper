@@ -8,7 +8,8 @@ import (
 	"gophkeeper/server/internal/storage"
 	"net/http"
 	"strconv"
-	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // API holds the dependencies for the API handlers.
@@ -23,6 +24,8 @@ func New(store storage.Store, jwtManager *auth.JWTManager) *API {
 }
 
 func (a *API) Register(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var user models.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -36,7 +39,7 @@ func (a *API) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	user.Password = hashedPassword
 
-	createdUser, err := a.store.CreateUser(user)
+	createdUser, err := a.store.CreateUser(ctx, user)
 	if err != nil {
 		var userExistsErr storage.ErrUserExists
 		if errors.As(err, &userExistsErr) {
@@ -52,13 +55,15 @@ func (a *API) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) Login(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	var creds models.User
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	user, err := a.store.GetUserByLogin(creds.Login)
+	user, err := a.store.GetUserByLogin(ctx, creds.Login)
 	if err != nil {
 		var userNotFoundErr storage.ErrUserNotFound
 		if errors.As(err, &userNotFoundErr) {
@@ -85,6 +90,8 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) CreateSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
@@ -98,7 +105,7 @@ func (a *API) CreateSecret(w http.ResponseWriter, r *http.Request) {
 	}
 	secret.UserID = userID // Ensure secret is for the authenticated user
 
-	createdSecret, err := a.store.CreateSecret(secret)
+	createdSecret, err := a.store.CreateSecret(ctx, secret)
 	if err != nil {
 		http.Error(w, "Failed to create secret", http.StatusInternalServerError)
 		return
@@ -109,13 +116,15 @@ func (a *API) CreateSecret(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) GetSecrets(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
 		return
 	}
 
-	secrets, err := a.store.GetSecrets(userID)
+	secrets, err := a.store.GetSecrets(ctx, userID)
 	if err != nil {
 		http.Error(w, "Failed to retrieve secrets", http.StatusInternalServerError)
 		return
@@ -126,20 +135,19 @@ func (a *API) GetSecrets(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) GetSecretByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
 		return
 	}
 
-	// This is a simplified way to get ID from path. A real app might use a router like chi or gorilla/mux
-	// to extract path parameters. For net/http, we'd parse r.URL.Path
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 { // e.g., /api/secrets/{id}
-		http.Error(w, "Invalid secret ID format", http.StatusBadRequest)
+	secretIDStr := chi.URLParam(r, "id")
+	if secretIDStr == "" {
+		http.Error(w, "Missing secret ID", http.StatusBadRequest)
 		return
 	}
-	secretIDStr := pathParts[3] // Assuming /api/secrets/123 -> "123"
 
 	secretID, err := strconv.Atoi(secretIDStr)
 	if err != nil {
@@ -147,7 +155,7 @@ func (a *API) GetSecretByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret, err := a.store.GetSecretByID(userID, secretID)
+	secret, err := a.store.GetSecretByID(ctx, userID, secretID)
 	if err != nil {
 		var secretNotFoundErr storage.ErrSecretNotFound
 		if errors.As(err, &secretNotFoundErr) {
@@ -163,9 +171,23 @@ func (a *API) GetSecretByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) UpdateSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	secretIDStr := chi.URLParam(r, "id")
+	if secretIDStr == "" {
+		http.Error(w, "Missing secret ID", http.StatusBadRequest)
+		return
+	}
+
+	secretID, err := strconv.Atoi(secretIDStr)
+	if err != nil {
+		http.Error(w, "Invalid secret ID", http.StatusBadRequest)
 		return
 	}
 
@@ -174,9 +196,11 @@ func (a *API) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	secret.UserID = userID // Ensure secret is for the authenticated user
 
-	updatedSecret, err := a.store.UpdateSecret(secret)
+	secret.ID = secretID
+	secret.UserID = userID
+
+	updatedSecret, err := a.store.UpdateSecret(ctx, secret)
 	if err != nil {
 		var secretNotFoundErr storage.ErrSecretNotFound
 		if errors.As(err, &secretNotFoundErr) {
@@ -192,18 +216,19 @@ func (a *API) UpdateSecret(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) DeleteSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
 		return
 	}
 
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 { // e.g., /api/secrets/{id}
-		http.Error(w, "Invalid secret ID format", http.StatusBadRequest)
+	secretIDStr := chi.URLParam(r, "id")
+	if secretIDStr == "" {
+		http.Error(w, "Missing secret ID", http.StatusBadRequest)
 		return
 	}
-	secretIDStr := pathParts[3]
 
 	secretID, err := strconv.Atoi(secretIDStr)
 	if err != nil {
@@ -211,7 +236,7 @@ func (a *API) DeleteSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.store.DeleteSecret(userID, secretID)
+	err = a.store.DeleteSecret(ctx, userID, secretID)
 	if err != nil {
 		var secretNotFoundErr storage.ErrSecretNotFound
 		if errors.As(err, &secretNotFoundErr) {
