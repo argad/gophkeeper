@@ -1,14 +1,17 @@
 package storage
 
-import "gophkeeper/server/internal/models"
+import (
+	"context"
+	"gophkeeper/server/internal/models"
+)
 
 type Store interface {
-	CreateUser(user models.User) (models.User, error)
-	GetUserByLogin(login string) (models.User, error)
+	CreateUser(ctx context.Context, user models.User) (models.User, error)
+	GetUserByLogin(ctx context.Context, login string) (models.User, error)
 
-	CreateSecret(secret models.Secret) (models.Secret, error)
-	GetSecrets(userID int) ([]models.Secret, error)
-	GetSecretByID(userID, secretID int) (models.Secret, error)
-	UpdateSecret(secret models.Secret) (models.Secret, error)
-	DeleteSecret(userID, secretID int) error
+	CreateSecret(ctx context.Context, secret models.Secret) (models.Secret, error)
+	GetSecrets(ctx context.Context, userID int) ([]models.Secret, error)
+	GetSecretByID(ctx context.Context, userID, secretID int) (models.Secret, error)
+	UpdateSecret(ctx context.Context, secret models.Secret) (models.Secret, error)
+	DeleteSecret(ctx context.Context, userID, secretID int) error
 }

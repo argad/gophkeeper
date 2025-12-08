@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"gophkeeper/client/internal/api"
 	"gophkeeper/client/internal/models"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -38,7 +38,7 @@ Requires authentication.`,
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			bodyBytes, _ := ioutil.ReadAll(resp.Body)
+			bodyBytes, _ := io.ReadAll(resp.Body)
 			fmt.Printf("Operation failed: %s (Status: %d)\n", string(bodyBytes), resp.StatusCode)
 			return
 		}

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // TestRegister tests the Register handler
@@ -66,7 +68,7 @@ func TestRegister(t *testing.T) {
 			// Pre-populate store for duplicate test
 			if tt.name == "duplicate user registration" {
 				hashedPass, _ := auth.HashPassword("testpass")
-				store.CreateUser(models.User{Login: "duplicate", Password: hashedPass})
+				store.CreateUser(context.Background(), models.User{Login: "duplicate", Password: hashedPass})
 			}
 
 			var body []byte
@@ -109,7 +111,7 @@ func TestLogin(t *testing.T) {
 			name: "successful login",
 			setupStore: func(store *storage.MemStore) {
 				hashedPass, _ := auth.HashPassword("correctpass")
-				store.CreateUser(models.User{Login: "testuser", Password: hashedPass})
+				store.CreateUser(context.Background(), models.User{Login: "testuser", Password: hashedPass})
 			},
 			requestBody: models.User{
 				Login:    "testuser",
@@ -130,7 +132,7 @@ func TestLogin(t *testing.T) {
 			name: "invalid password",
 			setupStore: func(store *storage.MemStore) {
 				hashedPass, _ := auth.HashPassword("correctpass")
-				store.CreateUser(models.User{Login: "testuser", Password: hashedPass})
+				store.CreateUser(context.Background(), models.User{Login: "testuser", Password: hashedPass})
 			},
 			requestBody: models.User{
 				Login:    "testuser",
@@ -255,9 +257,9 @@ func TestGetSecrets(t *testing.T) {
 	secret2 := models.Secret{UserID: 1, Type: models.TextDataType, Data: []byte("data2")}
 	secret3 := models.Secret{UserID: 2, Type: models.TextDataType, Data: []byte("data3")}
 
-	store.CreateSecret(secret1)
-	store.CreateSecret(secret2)
-	store.CreateSecret(secret3)
+	store.CreateSecret(context.Background(), secret1)
+	store.CreateSecret(context.Background(), secret2)
+	store.CreateSecret(context.Background(), secret3)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/secrets", nil)
 	ctx := context.WithValue(req.Context(), auth.UserIDContextKey, 1)
@@ -286,13 +288,13 @@ func TestGetSecretByID(t *testing.T) {
 		name           string
 		setupStore     func(*storage.MemStore) int
 		userID         int
-		path           string
+		secretID       string
 		expectedStatus int
 	}{
 		{
 			name: "successful retrieval",
 			setupStore: func(store *storage.MemStore) int {
-				secret, _ := store.CreateSecret(models.Secret{
+				secret, _ := store.CreateSecret(context.Background(), models.Secret{
 					UserID: 1,
 					Type:   models.TextDataType,
 					Data:   []byte("test data"),
@@ -300,7 +302,7 @@ func TestGetSecretByID(t *testing.T) {
 				return secret.ID
 			},
 			userID:         1,
-			path:           "/api/secrets/1",
+			secretID:       "1",
 			expectedStatus: http.StatusOK,
 		},
 		{
@@ -309,7 +311,7 @@ func TestGetSecretByID(t *testing.T) {
 				return 999
 			},
 			userID:         1,
-			path:           "/api/secrets/999",
+			secretID:       "999",
 			expectedStatus: http.StatusNotFound,
 		},
 		{
@@ -318,7 +320,7 @@ func TestGetSecretByID(t *testing.T) {
 				return 0
 			},
 			userID:         1,
-			path:           "/api/secrets/invalid",
+			secretID:       "invalid",
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -333,9 +335,15 @@ func TestGetSecretByID(t *testing.T) {
 				tt.setupStore(store)
 			}
 
-			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
-			ctx := context.WithValue(req.Context(), auth.UserIDContextKey, tt.userID)
+			req := httptest.NewRequest(http.MethodGet, "/api/secrets/"+tt.secretID, nil)
+
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tt.secretID)
+
+			ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+			ctx = context.WithValue(ctx, auth.UserIDContextKey, tt.userID)
 			req = req.WithContext(ctx)
+
 			resp := httptest.NewRecorder()
 
 			api.GetSecretByID(resp, req)
@@ -354,7 +362,7 @@ func TestUpdateSecret(t *testing.T) {
 	api := New(store, jwtManager)
 
 	// Create initial secret
-	secret, _ := store.CreateSecret(models.Secret{
+	secret, _ := store.CreateSecret(context.Background(), models.Secret{
 		UserID:   1,
 		Type:     models.TextDataType,
 		Data:     []byte("original data"),
@@ -370,8 +378,14 @@ func TestUpdateSecret(t *testing.T) {
 
 	body, _ := json.Marshal(updatedSecret)
 	req := httptest.NewRequest(http.MethodPut, "/api/secrets/1", bytes.NewBuffer(body))
-	ctx := context.WithValue(req.Context(), auth.UserIDContextKey, 1)
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", "1")
+
+	ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+	ctx = context.WithValue(ctx, auth.UserIDContextKey, 1) // ✅ Используем конкретное значение
 	req = req.WithContext(ctx)
+
 	resp := httptest.NewRecorder()
 
 	api.UpdateSecret(resp, req)
@@ -396,13 +410,13 @@ func TestDeleteSecret(t *testing.T) {
 		name           string
 		setupStore     func(*storage.MemStore) int
 		userID         int
-		path           string
+		secretID       string
 		expectedStatus int
 	}{
 		{
 			name: "successful deletion",
 			setupStore: func(store *storage.MemStore) int {
-				secret, _ := store.CreateSecret(models.Secret{
+				secret, _ := store.CreateSecret(context.Background(), models.Secret{
 					UserID: 1,
 					Type:   models.TextDataType,
 					Data:   []byte("test data"),
@@ -410,7 +424,7 @@ func TestDeleteSecret(t *testing.T) {
 				return secret.ID
 			},
 			userID:         1,
-			path:           "/api/secrets/1",
+			secretID:       "1",
 			expectedStatus: http.StatusNoContent,
 		},
 		{
@@ -419,7 +433,7 @@ func TestDeleteSecret(t *testing.T) {
 				return 999
 			},
 			userID:         1,
-			path:           "/api/secrets/999",
+			secretID:       "999",
 			expectedStatus: http.StatusNotFound,
 		},
 	}
@@ -434,9 +448,15 @@ func TestDeleteSecret(t *testing.T) {
 				tt.setupStore(store)
 			}
 
-			req := httptest.NewRequest(http.MethodDelete, tt.path, nil)
-			ctx := context.WithValue(req.Context(), auth.UserIDContextKey, tt.userID)
+			req := httptest.NewRequest(http.MethodDelete, "/api/secrets/"+tt.secretID, nil)
+
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("id", tt.secretID)
+
+			ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+			ctx = context.WithValue(ctx, auth.UserIDContextKey, tt.userID)
 			req = req.WithContext(ctx)
+
 			resp := httptest.NewRecorder()
 
 			api.DeleteSecret(resp, req)

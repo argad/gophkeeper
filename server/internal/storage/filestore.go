@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"gophkeeper/server/internal/models"
 	"sync"
 )
@@ -25,7 +26,11 @@ func NewMemStore() *MemStore {
 }
 
 // CreateUser adds a new user to the store.
-func (s *MemStore) CreateUser(user models.User) (models.User, error) {
+func (s *MemStore) CreateUser(ctx context.Context, user models.User) (models.User, error) {
+	if err := ctx.Err(); err != nil {
+		return models.User{}, err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -40,7 +45,11 @@ func (s *MemStore) CreateUser(user models.User) (models.User, error) {
 }
 
 // GetUserByLogin retrieves a user by their login.
-func (s *MemStore) GetUserByLogin(login string) (models.User, error) {
+func (s *MemStore) GetUserByLogin(ctx context.Context, login string) (models.User, error) {
+	if err := ctx.Err(); err != nil {
+		return models.User{}, err
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -52,7 +61,10 @@ func (s *MemStore) GetUserByLogin(login string) (models.User, error) {
 }
 
 // CreateSecret adds a new secret for a user.
-func (s *MemStore) CreateSecret(secret models.Secret) (models.Secret, error) {
+func (s *MemStore) CreateSecret(ctx context.Context, secret models.Secret) (models.Secret, error) {
+	if err := ctx.Err(); err != nil {
+		return models.Secret{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -63,7 +75,10 @@ func (s *MemStore) CreateSecret(secret models.Secret) (models.Secret, error) {
 }
 
 // GetSecrets retrieves all secrets for a specific user.
-func (s *MemStore) GetSecrets(userID int) ([]models.Secret, error) {
+func (s *MemStore) GetSecrets(ctx context.Context, userID int) ([]models.Secret, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -75,7 +90,10 @@ func (s *MemStore) GetSecrets(userID int) ([]models.Secret, error) {
 }
 
 // GetSecretByID retrieves a specific secret for a user by its ID.
-func (s *MemStore) GetSecretByID(userID, secretID int) (models.Secret, error) {
+func (s *MemStore) GetSecretByID(ctx context.Context, userID, secretID int) (models.Secret, error) {
+	if err := ctx.Err(); err != nil {
+		return models.Secret{}, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -90,7 +108,10 @@ func (s *MemStore) GetSecretByID(userID, secretID int) (models.Secret, error) {
 }
 
 // UpdateSecret updates an existing secret for a user.
-func (s *MemStore) UpdateSecret(secret models.Secret) (models.Secret, error) {
+func (s *MemStore) UpdateSecret(ctx context.Context, secret models.Secret) (models.Secret, error) {
+	if err := ctx.Err(); err != nil {
+		return models.Secret{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -106,7 +127,11 @@ func (s *MemStore) UpdateSecret(secret models.Secret) (models.Secret, error) {
 }
 
 // DeleteSecret deletes a secret for a user by its ID.
-func (s *MemStore) DeleteSecret(userID, secretID int) error {
+func (s *MemStore) DeleteSecret(ctx context.Context, userID, secretID int) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

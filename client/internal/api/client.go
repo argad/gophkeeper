@@ -11,25 +11,18 @@ import (
 	"time"
 )
 
-var (
-	// ServerURL can be configured via environment variable
-	ServerURL = getServerURL()
-)
-
-func getServerURL() string {
-	if url := os.Getenv("GOPHKEEPER_SERVER_URL"); url != "" {
-		return url
-	}
-	return "http://localhost:8080"
-}
-
 // Client is a GophKeeper API client.
 type Client struct {
+	serverURL  string
 	httpClient *http.Client
 }
 
-// NewClient creates a new GophKeeper API client.
 func NewClient() *Client {
+	return NewClientWithURL(config.GetServerURL())
+}
+
+// NewClient creates a new GophKeeper API client.
+func NewClientWithURL(serverURL string) *Client {
 	// Configure TLS settings
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
@@ -42,6 +35,7 @@ func NewClient() *Client {
 	}
 
 	return &Client{
+		serverURL: serverURL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
@@ -64,7 +58,7 @@ func (c *Client) Request(method, path string, body interface{}) (*http.Response,
 		reqBody = bytes.NewBuffer(nil)
 	}
 
-	req, err := http.NewRequest(method, ServerURL+path, reqBody)
+	req, err := http.NewRequest(method, c.serverURL+path, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -97,7 +91,7 @@ func (c *Client) AuthenticatedRequest(method, path string, body interface{}) (*h
 		reqBody = bytes.NewBuffer(nil)
 	}
 
-	req, err := http.NewRequest(method, ServerURL+path, reqBody)
+	req, err := http.NewRequest(method, c.serverURL+path, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

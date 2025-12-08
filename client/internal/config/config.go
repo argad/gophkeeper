@@ -7,8 +7,18 @@ import (
 )
 
 const (
-	tokenFileName = "gophkeeper_token.txt"
+	tokenFileName    = "gophkeeper_token.txt"
+	defaultServerURL = "http://localhost:8080"
+	serverURLEnvVar  = "SERVER_URL"
 )
+
+func GetServerURL() string {
+	url := os.Getenv(serverURLEnvVar)
+	if url == "" {
+		return defaultServerURL
+	}
+	return url
+}
 
 // GetConfigDir returns the appropriate configuration directory for the OS.
 func GetConfigDir() (string, error) {
@@ -35,7 +45,7 @@ func SaveToken(token string) error {
 		return err
 	}
 	tokenPath := filepath.Join(configDir, tokenFileName)
-	return ioutil.WriteFile(tokenPath, []byte(token), 0600)
+	return os.WriteFile(tokenPath, []byte(token), 0600)
 }
 
 // LoadToken loads the JWT token from a file.
@@ -45,7 +55,7 @@ func LoadToken() (string, error) {
 		return "", err
 	}
 	tokenPath := filepath.Join(configDir, tokenFileName)
-	data, err := ioutil.ReadFile(tokenPath)
+	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read token file: %w", err)
 	}

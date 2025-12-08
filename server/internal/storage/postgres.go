@@ -75,8 +75,7 @@ func (s *PostgresStore) initSchema(ctx context.Context) error {
 }
 
 // CreateUser adds a new user to the store.
-func (s *PostgresStore) CreateUser(user models.User) (models.User, error) {
-	ctx := context.Background()
+func (s *PostgresStore) CreateUser(ctx context.Context, user models.User) (models.User, error) {
 
 	query := `INSERT INTO users (login, password) VALUES ($1, $2) RETURNING id`
 
@@ -94,8 +93,7 @@ func (s *PostgresStore) CreateUser(user models.User) (models.User, error) {
 }
 
 // GetUserByLogin retrieves a user by their login.
-func (s *PostgresStore) GetUserByLogin(login string) (models.User, error) {
-	ctx := context.Background()
+func (s *PostgresStore) GetUserByLogin(ctx context.Context, login string) (models.User, error) {
 
 	query := `SELECT id, login, password FROM users WHERE login = $1`
 
@@ -112,8 +110,7 @@ func (s *PostgresStore) GetUserByLogin(login string) (models.User, error) {
 }
 
 // CreateSecret adds a new secret for a user.
-func (s *PostgresStore) CreateSecret(secret models.Secret) (models.Secret, error) {
-	ctx := context.Background()
+func (s *PostgresStore) CreateSecret(ctx context.Context, secret models.Secret) (models.Secret, error) {
 
 	query := `INSERT INTO secrets (user_id, type, data, metadata) VALUES ($1, $2, $3, $4) RETURNING id`
 
@@ -126,8 +123,7 @@ func (s *PostgresStore) CreateSecret(secret models.Secret) (models.Secret, error
 }
 
 // GetSecrets retrieves all secrets for a specific user.
-func (s *PostgresStore) GetSecrets(userID int) ([]models.Secret, error) {
-	ctx := context.Background()
+func (s *PostgresStore) GetSecrets(ctx context.Context, userID int) ([]models.Secret, error) {
 
 	query := `SELECT id, user_id, type, data, metadata FROM secrets WHERE user_id = $1`
 
@@ -159,8 +155,7 @@ func (s *PostgresStore) GetSecrets(userID int) ([]models.Secret, error) {
 }
 
 // GetSecretByID retrieves a specific secret for a user by its ID.
-func (s *PostgresStore) GetSecretByID(userID, secretID int) (models.Secret, error) {
-	ctx := context.Background()
+func (s *PostgresStore) GetSecretByID(ctx context.Context, userID, secretID int) (models.Secret, error) {
 
 	query := `SELECT id, user_id, type, data, metadata FROM secrets WHERE id = $1 AND user_id = $2`
 
@@ -179,8 +174,7 @@ func (s *PostgresStore) GetSecretByID(userID, secretID int) (models.Secret, erro
 }
 
 // UpdateSecret updates an existing secret for a user.
-func (s *PostgresStore) UpdateSecret(secret models.Secret) (models.Secret, error) {
-	ctx := context.Background()
+func (s *PostgresStore) UpdateSecret(ctx context.Context, secret models.Secret) (models.Secret, error) {
 
 	query := `UPDATE secrets SET type = $1, data = $2, metadata = $3 WHERE id = $4 AND user_id = $5`
 
@@ -197,8 +191,7 @@ func (s *PostgresStore) UpdateSecret(secret models.Secret) (models.Secret, error
 }
 
 // DeleteSecret deletes a secret for a user by its ID.
-func (s *PostgresStore) DeleteSecret(userID, secretID int) error {
-	ctx := context.Background()
+func (s *PostgresStore) DeleteSecret(ctx context.Context, userID, secretID int) error {
 
 	query := `DELETE FROM secrets WHERE id = $1 AND user_id = $2`
 

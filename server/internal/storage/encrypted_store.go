@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"gophkeeper/server/internal/crypto"
 	"gophkeeper/server/internal/models"
@@ -32,17 +33,19 @@ func NewEncryptedStore(store Store, encryptionKey string) (*EncryptedStore, erro
 }
 
 // CreateUser delegates to the underlying store (no encryption needed for users)
-func (es *EncryptedStore) CreateUser(user models.User) (models.User, error) {
-	return es.store.CreateUser(user)
+func (es *EncryptedStore) CreateUser(ctx context.Context, user models.User) (models.User, error) {
+
+	return es.store.CreateUser(ctx, user)
+
 }
 
 // GetUserByLogin delegates to the underlying store (no encryption needed for users)
-func (es *EncryptedStore) GetUserByLogin(login string) (models.User, error) {
-	return es.store.GetUserByLogin(login)
+func (es *EncryptedStore) GetUserByLogin(ctx context.Context, login string) (models.User, error) {
+	return es.store.GetUserByLogin(ctx, login)
 }
 
 // CreateSecret encrypts the secret data before storing
-func (es *EncryptedStore) CreateSecret(secret models.Secret) (models.Secret, error) {
+func (es *EncryptedStore) CreateSecret(ctx context.Context, secret models.Secret) (models.Secret, error) {
 	if es.encryptor != nil && len(secret.Data) > 0 {
 		encryptedData, err := es.encryptor.Encrypt(secret.Data)
 		if err != nil {
@@ -51,12 +54,12 @@ func (es *EncryptedStore) CreateSecret(secret models.Secret) (models.Secret, err
 		secret.Data = encryptedData
 	}
 
-	return es.store.CreateSecret(secret)
+	return es.store.CreateSecret(ctx, secret)
 }
 
 // GetSecrets retrieves and decrypts all secrets for a user
-func (es *EncryptedStore) GetSecrets(userID int) ([]models.Secret, error) {
-	secrets, err := es.store.GetSecrets(userID)
+func (es *EncryptedStore) GetSecrets(ctx context.Context, userID int) ([]models.Secret, error) {
+	secrets, err := es.store.GetSecrets(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +79,8 @@ func (es *EncryptedStore) GetSecrets(userID int) ([]models.Secret, error) {
 }
 
 // GetSecretByID retrieves and decrypts a specific secret
-func (es *EncryptedStore) GetSecretByID(userID, secretID int) (models.Secret, error) {
-	secret, err := es.store.GetSecretByID(userID, secretID)
+func (es *EncryptedStore) GetSecretByID(ctx context.Context, userID, secretID int) (models.Secret, error) {
+	secret, err := es.store.GetSecretByID(ctx, userID, secretID)
 	if err != nil {
 		return models.Secret{}, err
 	}
@@ -95,7 +98,7 @@ func (es *EncryptedStore) GetSecretByID(userID, secretID int) (models.Secret, er
 }
 
 // UpdateSecret encrypts the secret data before updating
-func (es *EncryptedStore) UpdateSecret(secret models.Secret) (models.Secret, error) {
+func (es *EncryptedStore) UpdateSecret(ctx context.Context, secret models.Secret) (models.Secret, error) {
 	if es.encryptor != nil && len(secret.Data) > 0 {
 		encryptedData, err := es.encryptor.Encrypt(secret.Data)
 		if err != nil {
@@ -104,10 +107,10 @@ func (es *EncryptedStore) UpdateSecret(secret models.Secret) (models.Secret, err
 		secret.Data = encryptedData
 	}
 
-	return es.store.UpdateSecret(secret)
+	return es.store.UpdateSecret(ctx, secret)
 }
 
 // DeleteSecret delegates to the underlying store
-func (es *EncryptedStore) DeleteSecret(userID, secretID int) error {
-	return es.store.DeleteSecret(userID, secretID)
+func (es *EncryptedStore) DeleteSecret(ctx context.Context, userID, secretID int) error {
+	return es.store.DeleteSecret(ctx, userID, secretID)
 }
